@@ -3,13 +3,17 @@ package blockchain
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
 	"encoding/hex"
+	"errors"
 	"io"
 	"log"
+	"math/big"
 	"time"
+	"zeechain/wallet"
 )
 
 type Transaction struct {
@@ -49,6 +53,10 @@ func Deserialize(data io.Reader) *Transaction {
 	return &trans
 }
 
+func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Transaction {
+	return nil
+}
+
 func CoinBaseTx(to, data string) *Transaction {
 	if data == "" {
 		randData := make([]byte, 24)
@@ -79,16 +87,69 @@ func (tx *Transaction) IsCoinbase() bool {
 	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].OutId == -1
 }
 
-func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTxs map[string]Transaction) {
+func (tx *Transaction) Sign(privKey ecdsa.PrivateKey, prevTxs map[string]Transaction) error {
 	if tx.IsCoinbase() {
-		return
+		return nil
 	}
 	for _, in := range tx.Inputs {
 		if prevTxs[hex.EncodeToString(in.ID)].ID == nil {
 			//what is the point of this check, why would th e
-			log.Panic("Previous transactions are void")
+			return errors.New("previous transactions are void")
 		}
 	}
+	txCopy := tx.TrimmedCopy()
+	for inIdx, in := range txCopy.Inputs {
+		prevTx := prevTxs[hex.EncodeToString(in.ID)]
+		txCopy.Inputs[inIdx].Signature = nil
+		txCopy.Inputs[inIdx].PubKey = prevTx.Outputs[in.OutId].PubKeyHash
+
+		dataSign := txCopy.Serialize()
+		hash := sha256.Sum256(dataSign)
+		r, s, err := ecdsa.Sign(rand.Reader, &privKey, hash[:])
+		if err != nil {
+			return err
+		}
+		tx.Inputs[inIdx].Signature = append(r.Bytes(), s.Bytes()...)
+		txCopy.Inputs[inIdx].PubKey = nil
+	}
+	return nil
+}
+
+func (tx *Transaction) Verify(prevTxs map[string]Transaction) (bool, error) {
+	if tx.IsCoinbase() {
+		return true, nil
+	}
+
+	for _, in := range tx.Inputs {
+		if prevTxs[hex.EncodeToString(in.ID)].ID == nil {
+			return false, errors.New("previous transactions are void")
+		}
+	}
+	txCopy := tx.TrimmedCopy()
+	curve := elliptic.P256()
+	for inIdx, in := range tx.Inputs {
+		prevTx := prevTxs[hex.EncodeToString(in.ID)]
+		txCopy.Inputs[inIdx].Signature = nil
+		txCopy.Inputs[inIdx].PubKey = prevTx.Outputs[in.OutId].PubKeyHash
+		r := big.Int{}
+		s := big.Int{}
+		sigLen := len(in.Signature)
+		r.SetBytes(in.Signature[:(sigLen / 2)])
+		s.SetBytes(in.Signature[(sigLen / 2):])
+		x := big.Int{}
+		y := big.Int{}
+		keyLen := len(in.PubKey)
+		x.SetBytes(in.PubKey[:(keyLen / 2)])
+		y.SetBytes(in.PubKey[(keyLen / 2):])
+		pubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
+		dataSign := txCopy.Serialize()
+		hash := sha256.Sum256(dataSign)
+		if !ecdsa.Verify(&pubKey, hash[:], &r, &s) {
+			return false, nil
+		}
+		txCopy.Inputs[inIdx].PubKey = nil
+	}
+	return true, nil
 }
 
 func (tx *Transaction) TrimmedCopy() Transaction {
