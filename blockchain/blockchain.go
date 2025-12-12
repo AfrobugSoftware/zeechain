@@ -2,6 +2,7 @@ package blockchain
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -157,6 +158,9 @@ func (chain *Blockchain) GetBlock(blockHash []byte) (Block, error) {
 			block = *DeserializeBlock(bytes.NewReader(val))
 			return nil
 		})
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
@@ -184,11 +188,57 @@ func (chain *Blockchain) MineBlock(transactions []*Transaction) (*Block, error) 
 	var lashHash []byte
 	var lastHeight int
 	for _, tx := range transactions {
-		if chain.VerifyTransactions(tx) {
-
+		if !chain.VerifyTransactions(tx) {
+			return nil, errors.New("invalid transaction")
 		}
 	}
-
+	err := chain.Db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte("lh"))
+		if err != nil {
+			return err
+		}
+		err = item.Value(func(val []byte) error {
+			lashHash = val
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		item, err = txn.Get(lashHash)
+		if err != nil {
+			return err
+		}
+		var lastBlock *Block
+		err = item.Value(func(val []byte) error {
+			lastBlock = DeserializeBlock(bytes.NewReader(val))
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		lastHeight = lastBlock.Height
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	newBlock := CreateBlock(transactions, lashHash, lastHeight+1)
+	err = chain.Db.Update(func(txn *badger.Txn) error {
+		err := txn.Set(newBlock.Hash, newBlock.Serialize())
+		if err != nil {
+			return nil
+		}
+		err = txn.Set([]byte("lh"), newBlock.Hash)
+		if err != nil {
+			return nil
+		}
+		chain.LastHash = newBlock.Hash
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return newBlock, nil
 }
 
 func (chain *Blockchain) FindTransction(Id []byte) (Transaction, error) {
@@ -205,6 +255,18 @@ func (chain *Blockchain) FindTransction(Id []byte) (Transaction, error) {
 		}
 	}
 	return Transaction{}, errors.New("Transaction not found")
+}
+
+func (chain *Blockchain) SignTransactions(tx *Transaction, privKey *ecdsa.PrivateKey) error {
+	prevTxs := make(map[string]Transaction)
+	for _, in := range tx.Inputs {
+		prevTx, err := chain.FindTransction(in.ID)
+		if err != nil {
+			return err
+		}
+		prevTxs[hex.EncodeToString(prevTx.ID)] = prevTx
+	}
+	return tx.Sign(*privKey, prevTxs)
 }
 
 func (chain *Blockchain) VerifyTransactions(tx *Transaction) bool {

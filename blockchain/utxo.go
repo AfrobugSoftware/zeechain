@@ -142,6 +142,9 @@ func (u *UTXOSet) Update(block *Block) {
 						v = val
 						return nil
 					})
+					if err != nil {
+						return err
+					}
 					outs := DeserialzeOutputs(v)
 					updateOuts := TransOutputs{}
 					for outIdx, out := range outs.Outputs {
@@ -160,9 +163,7 @@ func (u *UTXOSet) Update(block *Block) {
 					}
 				}
 				newOutputs := TransOutputs{}
-				for _, out := range tx.Outputs {
-					newOutputs.Outputs = append(newOutputs.Outputs, out)
-				}
+				newOutputs.Outputs = append(newOutputs.Outputs, tx.Outputs...)
 				txId := append(utxoPrefix, tx.ID...)
 				if err := txn.Set(txId, newOutputs.Serialize()); err != nil {
 					log.Panic(err)

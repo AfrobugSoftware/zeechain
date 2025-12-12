@@ -45,7 +45,7 @@ func (b *Block) Serialize() []byte {
 	encode := gob.NewEncoder(&buf)
 	err := encode.Encode(b)
 	if err != nil {
-		log.Panic("failed to serialize: %v", err)
+		log.Panic(err)
 	}
 	return buf.Bytes()
 }
@@ -55,7 +55,7 @@ func DeserializeBlock(in io.Reader) *Block {
 	decode := gob.NewDecoder(in)
 	err := decode.Decode(&block)
 	if err != nil {
-		log.Panic("failed to deserialzie: %v", err)
+		log.Panic(err)
 	}
 	return &block
 }

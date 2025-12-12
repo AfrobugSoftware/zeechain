@@ -54,7 +54,32 @@ func Deserialize(data io.Reader) *Transaction {
 }
 
 func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Transaction {
-	return nil
+	var inputs []TransInput
+	var outputs []TransOutput
+
+	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
+	acc, valudOutputs := UTXO.FindSpendableOutput(pubKeyHash, amount)
+	if acc < amount {
+		log.Println("insufficient funds in wallet")
+		return nil
+	}
+	for tId, outs := range valudOutputs {
+		txId, err := hex.DecodeString(tId)
+		if err != nil {
+			log.Panic(err)
+		}
+		for _, out := range outs {
+			inputs = append(inputs, TransInput{ID: txId, OutId: int64(out), Signature: nil, PubKey: w.PublicKey})
+		}
+	}
+	outputs = append(outputs, *NewTransOutput(uint64(amount), to))
+	if acc > amount {
+		outputs = append(outputs, *NewTransOutput(uint64(acc-amount), string(w.Address())))
+	}
+	tx := Transaction{time.Now(), nil, inputs, outputs}
+	tx.ID = tx.Hash()
+	UTXO.Chain.SignTransactions(&tx, &w.PrivateeKey)
+	return &tx
 }
 
 func CoinBaseTx(to, data string) *Transaction {
@@ -131,14 +156,11 @@ func (tx *Transaction) Verify(prevTxs map[string]Transaction) (bool, error) {
 		prevTx := prevTxs[hex.EncodeToString(in.ID)]
 		txCopy.Inputs[inIdx].Signature = nil
 		txCopy.Inputs[inIdx].PubKey = prevTx.Outputs[in.OutId].PubKeyHash
-		r := big.Int{}
-		s := big.Int{}
+		r, s, x, y := big.Int{}, big.Int{}, big.Int{}, big.Int{}
 		sigLen := len(in.Signature)
+		keyLen := len(in.PubKey)
 		r.SetBytes(in.Signature[:(sigLen / 2)])
 		s.SetBytes(in.Signature[(sigLen / 2):])
-		x := big.Int{}
-		y := big.Int{}
-		keyLen := len(in.PubKey)
 		x.SetBytes(in.PubKey[:(keyLen / 2)])
 		y.SetBytes(in.PubKey[(keyLen / 2):])
 		pubKey := ecdsa.PublicKey{Curve: curve, X: &x, Y: &y}
