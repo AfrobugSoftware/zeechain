@@ -1,7 +1,6 @@
 package wallet
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -13,8 +12,6 @@ type Wallets struct {
 	Wallets map[string]*Wallet
 }
 
-const walletFile = "wallet_%s.wal"
-
 func CreateWallets(nodeId string) (*Wallets, error) {
 	w := &Wallets{
 		Wallets: make(map[string]*Wallet),
@@ -24,29 +21,42 @@ func CreateWallets(nodeId string) (*Wallets, error) {
 }
 
 func (ws *Wallets) LoadFile(nodeId string) error {
-	filepath := fmt.Sprintf(walletFile, nodeId)
-	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+	dir := fmt.Sprintf("%s%s", "wallet", nodeId)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return err
 	}
-	filecontexts, err := os.ReadFile(filepath)
+	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
-	err = json.Unmarshal(filecontexts, ws)
-	if err != nil {
-		return nil
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			var w Wallet
+			err := w.Load(fmt.Sprintf("%s/%s", dir, entry.Name()))
+			if err != nil {
+				log.Fatal(err)
+			}
+			ws.Wallets[string(w.Address())] = &w
+		}
 	}
 	return nil
 }
 
 func (ws *Wallets) SaveFile(nodeId string) error {
-	walletFile := fmt.Sprintf(walletFile, nodeId)
-	data, err := json.Marshal(ws)
-	if err != nil {
-		return err
+	dir := fmt.Sprintf("%s%s", "wallet", nodeId)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.Mkdir(dir, 0755)
+		if err != nil {
+			return err
+		}
 	}
-	err = os.WriteFile(walletFile, data, 0644)
-	return err
+	for _, w := range ws.Wallets {
+		err := w.Save(dir)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ws *Wallets) AddWallet() string {

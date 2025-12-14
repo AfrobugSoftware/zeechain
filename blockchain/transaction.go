@@ -9,9 +9,11 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"math/big"
+	"strings"
 	"time"
 	"zeechain/wallet"
 )
@@ -60,8 +62,7 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 	pubKeyHash := wallet.PublicKeyHash(w.PublicKey)
 	acc, valudOutputs := UTXO.FindSpendableOutput(pubKeyHash, amount)
 	if acc < amount {
-		log.Println("insufficient funds in wallet")
-		return nil
+		log.Fatal("insufficient funds in wallet")
 	}
 	for tId, outs := range valudOutputs {
 		txId, err := hex.DecodeString(tId)
@@ -185,4 +186,26 @@ func (tx *Transaction) TrimmedCopy() Transaction {
 		txOutputs = append(txOutputs, TransOutput{out.Value, out.PubKeyHash})
 	}
 	return Transaction{tx.Date, tx.ID, txInputs, txOutputs}
+}
+
+func (tx Transaction) String() string {
+	var lines []string
+
+	lines = append(lines, fmt.Sprintf("--- Transaction %x:", tx.ID))
+	lines = append(lines, fmt.Sprint(tx.Date))
+	for i, input := range tx.Inputs {
+		lines = append(lines, fmt.Sprintf("     Input %d:", i))
+		lines = append(lines, fmt.Sprintf("       TXID:     %x", input.ID))
+		lines = append(lines, fmt.Sprintf("       Out:       %d", input.OutId))
+		lines = append(lines, fmt.Sprintf("       Signature: %x", input.Signature))
+		lines = append(lines, fmt.Sprintf("       PubKey:    %x", input.PubKey))
+	}
+
+	for i, output := range tx.Outputs {
+		lines = append(lines, fmt.Sprintf("     Output %d:", i))
+		lines = append(lines, fmt.Sprintf("       Value:  %d", output.Value))
+		lines = append(lines, fmt.Sprintf("       Script: %x", output.PubKeyHash))
+	}
+
+	return strings.Join(lines, "\n")
 }

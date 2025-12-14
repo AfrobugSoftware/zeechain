@@ -436,7 +436,7 @@ func StartServer(nodeAddr, nodeId, minerAddress string) {
 	mineAddress = minerAddress
 	ln, err := net.Listen(protocol, nodeAddr)
 	if err != nil {
-		log.Panic(err)
+		log.Fatal(err)
 	}
 	defer ln.Close()
 	chain := blockchain.ContinueBlockChain(nodeId)
@@ -452,7 +452,7 @@ func StartServer(nodeAddr, nodeId, minerAddress string) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Panic(err)
+			log.Fatal(err)
 		}
 		go HandleConnection(conn, chain)
 	}

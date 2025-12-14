@@ -170,10 +170,13 @@ func (cli *CommandLine) Run() {
 
 	nodeID := os.Getenv("NODE_ID")
 	nodeAddr := os.Getenv("NODE_ADDR")
-	if nodeID == "" {
-		fmt.Printf("NODE_ID env is not set!")
-		runtime.Goexit()
+	if nodeAddr == "" {
+		log.Fatal("NODE_ADDR env is not set")
 	}
+	if nodeID == "" {
+		log.Fatal("NODE_ID env is not set!")
+	}
+	KnownNodeAddress = append(KnownNodeAddress, nodeAddr)
 
 	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
 	createBlockchainCmd := flag.NewFlagSet("createblockchain", flag.ExitOnError)

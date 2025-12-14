@@ -9,14 +9,13 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/dgraph-io/badger"
 )
 
 const (
-	dbPath      = "./tmp/blocks_%s"
+	dbPath      = "blocks_"
 	genesisData = "First Transaction from Genesis"
 )
 
@@ -31,7 +30,7 @@ func DBExists(path string) bool {
 }
 
 func ContinueBlockChain(nodeId string) *Blockchain {
-	path := fmt.Sprintf(dbPath, nodeId)
+	path := fmt.Sprintf("%s/%s%s", os.TempDir(), dbPath, nodeId)
 	db, err := openDB(path)
 	if err != nil {
 		log.Fatal(err)
@@ -58,7 +57,7 @@ func ContinueBlockChain(nodeId string) *Blockchain {
 }
 
 func InitBlockChain(address, nodeId string) *Blockchain {
-	path := fmt.Sprintf(dbPath, nodeId)
+	path := fmt.Sprintf("%s/%s%s", os.TempDir(), dbPath, nodeId)
 	if DBExists(path) {
 		//why done we continue the block chain here
 		log.Panic("database exists")
@@ -66,7 +65,7 @@ func InitBlockChain(address, nodeId string) *Blockchain {
 	var lastHash []byte
 	db, err := openDB(path)
 	if err != nil {
-		runtime.Goexit()
+		log.Panic(err)
 	}
 	err = db.Update(func(txn *badger.Txn) error {
 		cbtx := CoinBaseTx(address, genesisData)
@@ -76,7 +75,11 @@ func InitBlockChain(address, nodeId string) *Blockchain {
 		if err != nil {
 			log.Panic(err)
 		}
+		err = txn.Set([]byte("lh"), genesis.Hash)
 		lastHash = genesis.Hash
+		if err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {
@@ -338,7 +341,10 @@ func retry(dir string) (*badger.DB, error) {
 }
 
 func openDB(dir string) (*badger.DB, error) {
-	if db, err := badger.Open(badger.DefaultOptions(dir)); err != nil {
+	opt := badger.DefaultOptions(dir)
+	opt.Truncate = true
+	opt.Logger = nil
+	if db, err := badger.Open(opt); err != nil {
 		if strings.Contains(err.Error(), "LOCK") {
 			if db, err := retry(dir); err == nil {
 				log.Println("database unlocked, value log truncated")

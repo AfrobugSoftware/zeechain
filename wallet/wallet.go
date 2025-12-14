@@ -6,8 +6,11 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/json"
+	"crypto/x509"
+	"encoding/pem"
+	"fmt"
 	"log"
+	"os"
 
 	"golang.org/x/crypto/ripemd160"
 )
@@ -77,18 +80,39 @@ func NewWallet() *Wallet {
 	}
 }
 
-func (w Wallet) MarshalJSON() ([]byte, error) {
-	mapStringAny := map[string]any{
-		"PrivateKey": map[string]any{
-			"D": w.PrivateKey.D,
-			"PublicKey": map[string]any{
-				"X": w.PrivateKey.PublicKey.X,
-				"Y": w.PrivateKey.PublicKey.Y,
-			},
-			"X": w.PrivateKey.X,
-			"Y": w.PrivateKey.Y,
-		},
-		"PublicKey": w.PublicKey,
+func (w Wallet) Save(dir string) error {
+	bs, err := x509.MarshalECPrivateKey(&w.PrivateKey)
+	if err != nil {
+		return err
 	}
-	return json.Marshal(mapStringAny)
+	pemBlock := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: bs,
+	}
+	pemBytes := pem.EncodeToMemory(pemBlock)
+
+	wfile := fmt.Sprintf("%s/%s.wal", dir, w.Address())
+	err = os.WriteFile(wfile, pemBytes, 0644)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w *Wallet) Load(filename string) error {
+	pemBytes, err := os.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	block, _ := pem.Decode(pemBytes)
+	if block == nil || block.Type != "EC PRIVATE KEY" {
+		log.Fatal("Failed to decode PEM block containing private key")
+	}
+	pk, err := x509.ParseECPrivateKey(block.Bytes)
+	if err != nil {
+		return err
+	}
+	w.PublicKey = append(pk.PublicKey.X.Bytes(), pk.PublicKey.Y.Bytes()...)
+	w.PrivateKey = *pk
+	return nil
 }

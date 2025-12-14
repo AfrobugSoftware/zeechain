@@ -37,7 +37,7 @@ func NewMerkleTree(data [][]byte) (*MerkleTree, error) {
 		nodes = append(nodes, node)
 	}
 	if len(nodes) == 0 {
-		return nil, errors.New("No merkle node")
+		return nil, errors.New("no merkle node")
 	}
 	for len(nodes) > 1 {
 		if len(nodes)%2 != 0 {

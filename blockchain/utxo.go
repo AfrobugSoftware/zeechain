@@ -39,9 +39,11 @@ func (u UTXOSet) FindSpendableOutput(pubKeyHash []byte, amount int) (int, map[st
 			}
 			k = bytes.TrimPrefix(k, utxoPrefix)
 			txId := hex.EncodeToString(k)
+			log.Println(txId)
 			outs := DeserialzeOutputs(v)
 			for outIdx, out := range outs.Outputs {
 				if out.IsLockedWIthKey(pubKeyHash) && accumulated < amount {
+					log.Printf("Amount: %d\n", out.Value)
 					accumulated += int(out.Value)
 					unspentOut[txId] = append(unspentOut[txId], outIdx)
 				}
