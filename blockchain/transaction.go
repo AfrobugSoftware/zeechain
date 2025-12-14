@@ -78,7 +78,7 @@ func NewTransaction(w *wallet.Wallet, to string, amount int, UTXO *UTXOSet) *Tra
 	}
 	tx := Transaction{time.Now(), nil, inputs, outputs}
 	tx.ID = tx.Hash()
-	UTXO.Chain.SignTransactions(&tx, &w.PrivateeKey)
+	UTXO.Chain.SignTransactions(&tx, &w.PrivateKey)
 	return &tx
 }
 

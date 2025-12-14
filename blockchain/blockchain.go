@@ -61,7 +61,7 @@ func InitBlockChain(address, nodeId string) *Blockchain {
 	path := fmt.Sprintf(dbPath, nodeId)
 	if DBExists(path) {
 		//why done we continue the block chain here
-		runtime.Goexit()
+		log.Panic("database exists")
 	}
 	var lastHash []byte
 	db, err := openDB(path)

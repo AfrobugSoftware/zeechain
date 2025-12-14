@@ -1,10 +1,9 @@
 package wallet
 
 import (
-	"bytes"
-	"crypto/elliptic"
-	"encoding/gob"
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -14,7 +13,7 @@ type Wallets struct {
 	Wallets map[string]*Wallet
 }
 
-const walletFile = "./zee/wallet_%s.wal"
+const walletFile = "wallet_%s.wal"
 
 func CreateWallets(nodeId string) (*Wallets, error) {
 	w := &Wallets{
@@ -33,26 +32,20 @@ func (ws *Wallets) LoadFile(nodeId string) error {
 	if err != nil {
 		return err
 	}
-	gob.Register(elliptic.P256())
-	decoder := gob.NewDecoder(bytes.NewReader(filecontexts))
-	err = decoder.Decode(ws)
+	err = json.Unmarshal(filecontexts, ws)
 	if err != nil {
 		return nil
 	}
 	return nil
 }
 
-func (ws *Wallet) SaveFile(nodeId string) error {
-	var buf bytes.Buffer
+func (ws *Wallets) SaveFile(nodeId string) error {
 	walletFile := fmt.Sprintf(walletFile, nodeId)
-
-	gob.Register(elliptic.P256())
-	encode := gob.NewEncoder(&buf)
-	err := encode.Encode(ws)
+	data, err := json.Marshal(ws)
 	if err != nil {
 		return err
 	}
-	err = os.WriteFile(walletFile, buf.Bytes(), 0644)
+	err = os.WriteFile(walletFile, data, 0644)
 	return err
 }
 
@@ -63,9 +56,15 @@ func (ws *Wallets) AddWallet() string {
 	return string(address)
 }
 
-func (ws *Wallets) GetAddress() []string {
+func (ws *Wallets) GetAllAddresses(nodeId string) []string {
 	var addreses []string
-	for k, _ := range ws.Wallets {
+	if len(ws.Wallets) == 0 {
+		err := ws.LoadFile(nodeId)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+	for k := range ws.Wallets {
 		addreses = append(addreses, k)
 	}
 	return addreses

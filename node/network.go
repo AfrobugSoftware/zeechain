@@ -184,15 +184,9 @@ func SendAddr(address string) {
 	SendData(address, request)
 }
 
-func SendBlock(addr string, block *blockchain.Block) {
-	payload := GobEncode(Block{nodeAddress, block.Serialize()})
-	request := append(CommandToByte("block"), payload...)
-	SendData(addr, request)
-}
-
 func SendInv(address, kind string, item [][]byte) {
 	payload := GobEncode(Inv{nodeAddress, kind, item})
-	request := append(CommandToByte("inventory"), payload...)
+	request := append(CommandToByte("inv"), payload...)
 	SendData(address, request)
 }
 
@@ -211,6 +205,12 @@ func SendGetData(address, kind string, id []byte) {
 	payload := GobEncode(GetData{AddrFrom: nodeAddress, Type: kind, Id: id})
 	request := append(CommandToByte("getdata"), payload...)
 	SendData(address, request)
+}
+
+func SendBlock(addr string, block *blockchain.Block) {
+	payload := GobEncode(Block{nodeAddress, block.Serialize()})
+	request := append(CommandToByte("block"), payload...)
+	SendData(addr, request)
 }
 
 func SendTx(address string, tx *blockchain.Transaction) {

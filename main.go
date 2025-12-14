@@ -1,7 +1,10 @@
 package main
 
-import "fmt"
+import (
+	"zeechain/node"
+)
 
 func main() {
-	fmt.Println("Hello world")
+	var cli node.CommandLine
+	cli.Run()
 }

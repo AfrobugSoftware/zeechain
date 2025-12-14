@@ -6,6 +6,7 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/json"
 	"log"
 
 	"golang.org/x/crypto/ripemd160"
@@ -17,8 +18,8 @@ const (
 )
 
 type Wallet struct {
-	PrivateeKey ecdsa.PrivateKey
-	PublicKey   []byte
+	PrivateKey ecdsa.PrivateKey
+	PublicKey  []byte
 }
 
 func Checksum(payload []byte) []byte {
@@ -71,7 +72,23 @@ func NewKeyPair() (*ecdsa.PrivateKey, []byte) {
 func NewWallet() *Wallet {
 	private, pub := NewKeyPair()
 	return &Wallet{
-		PrivateeKey: *private,
-		PublicKey:   pub,
+		PrivateKey: *private,
+		PublicKey:  pub,
 	}
+}
+
+func (w Wallet) MarshalJSON() ([]byte, error) {
+	mapStringAny := map[string]any{
+		"PrivateKey": map[string]any{
+			"D": w.PrivateKey.D,
+			"PublicKey": map[string]any{
+				"X": w.PrivateKey.PublicKey.X,
+				"Y": w.PrivateKey.PublicKey.Y,
+			},
+			"X": w.PrivateKey.X,
+			"Y": w.PrivateKey.Y,
+		},
+		"PublicKey": w.PublicKey,
+	}
+	return json.Marshal(mapStringAny)
 }
