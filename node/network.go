@@ -157,18 +157,20 @@ func LoadKnownNodes() error {
 func SendData(addr string, data []byte) {
 	conn, err := net.Dial(protocol, addr)
 	if err != nil {
-		log.Printf("%s is not avaliable", addr)
-		for i, node := range KnownNodeAddress {
-			if node == addr {
-				if i+1 < len(KnownNodeAddress) {
-					KnownNodeAddress = append(KnownNodeAddress[:i], KnownNodeAddress[i+1:]...)
-				} else {
-					KnownNodeAddress = KnownNodeAddress[:len(KnownNodeAddress)-1]
+		if err != nil {
+			log.Printf("%s is not avaliable", addr)
+			for i, node := range KnownNodeAddress {
+				if node == addr {
+					if i+1 < len(KnownNodeAddress) {
+						KnownNodeAddress = append(KnownNodeAddress[:i], KnownNodeAddress[i+1:]...)
+					} else {
+						KnownNodeAddress = KnownNodeAddress[:len(KnownNodeAddress)-1]
+					}
+					break
 				}
-				break
 			}
+			return
 		}
-		return
 	}
 	defer conn.Close()
 	if _, err := io.Copy(conn, bytes.NewReader(data)); err != nil {
@@ -197,7 +199,7 @@ func RequestBlocks() {
 }
 
 func SendGetBlocks(addr string) {
-	payload := GobEncode(GetBlocks{nodeAddress})
+	payload := GobEncode(GetBlocks{AddrFrom: nodeAddress})
 	request := append(CommandToByte("getblocks"), payload...)
 	SendData(addr, request)
 }
@@ -412,7 +414,7 @@ func HandleConnection(conn net.Conn, chain *blockchain.Blockchain) {
 		log.Panic(err)
 	}
 	command := BytesToCommand(ExtractCommand(buff))
-	fmt.Printf("Recived %s command", command)
+	fmt.Printf("Recived %s command\n", command)
 	switch command {
 	case "addr":
 		HandleAddr(buff)

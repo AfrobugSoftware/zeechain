@@ -31,6 +31,9 @@ func DBExists(path string) bool {
 
 func ContinueBlockChain(nodeId string) *Blockchain {
 	path := fmt.Sprintf("%s/%s%s", os.TempDir(), dbPath, nodeId)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		log.Fatalf("No chain for nodeId: %s, please create a new chain for nodeId", nodeId)
+	}
 	db, err := openDB(path)
 	if err != nil {
 		log.Fatal(err)
@@ -39,7 +42,7 @@ func ContinueBlockChain(nodeId string) *Blockchain {
 	err = db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte("lh"))
 		if err != nil {
-			return err
+			log.Fatalf("no last hash, please create a new chain: %v", err)
 		}
 		err = item.Value(func(val []byte) error {
 			lastHash = val

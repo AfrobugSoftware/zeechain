@@ -23,6 +23,7 @@ func (cli *CommandLine) Usage() {
 	fmt.Println(" listaddresses - Lists the addresses in our wallet file")
 	fmt.Println(" reindexutxo - Rebuilds the UTXO set")
 	fmt.Println(" startnode -miner ADDRESS - Start a node with ID specified in NODE_ID env. var. -miner enables mining")
+	fmt.Println(" loadchain - loads a blockchain given by NODE_ADDR")
 
 }
 
@@ -165,6 +166,13 @@ func (cli *CommandLine) send(from, to string, amount int, nodeID string, mineNow
 	fmt.Println("Success!")
 }
 
+func (cli *CommandLine) LoadChain(nodeID string) {
+	chain := blockchain.ContinueBlockChain(nodeID)
+	defer chain.Db.Close()
+	RequestBlocks()
+
+}
+
 func (cli *CommandLine) Run() {
 	cli.validateArgs()
 
@@ -178,6 +186,7 @@ func (cli *CommandLine) Run() {
 		log.Fatal("NODE_ID env is not set!")
 	}
 	KnownNodeAddress = append(KnownNodeAddress, nodeAddr)
+	nodeAddress = nodeAddr
 	wallet.WalletDir = walletDir
 
 	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
@@ -188,6 +197,7 @@ func (cli *CommandLine) Run() {
 	listAddressesCmd := flag.NewFlagSet("listaddresses", flag.ExitOnError)
 	reindexUTXOCmd := flag.NewFlagSet("reindexutxo", flag.ExitOnError)
 	startNodeCmd := flag.NewFlagSet("startnode", flag.ExitOnError)
+	loadChain := flag.NewFlagSet("loadchain", flag.ExitOnError)
 
 	getBalanceAddress := getBalanceCmd.String("address", "", "The address to get balance for")
 	createBlockchainAddress := createBlockchainCmd.String("address", "", "The address to send genesis block reward to")
@@ -237,6 +247,11 @@ func (cli *CommandLine) Run() {
 		err := sendCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
+		}
+	case "loadchain":
+		err := loadChain.Parse(os.Args[:2])
+		if err != nil {
+			log.Fatal(err)
 		}
 	default:
 		cli.Usage()
@@ -289,5 +304,8 @@ func (cli *CommandLine) Run() {
 			os.Exit(1)
 		}
 		cli.StartNode(nodeID, nodeAddr, *startNodeMiner)
+	}
+	if loadChain.Parsed() {
+		cli.LoadChain(nodeID)
 	}
 }
