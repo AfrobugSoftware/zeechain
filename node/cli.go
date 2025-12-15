@@ -170,6 +170,7 @@ func (cli *CommandLine) Run() {
 
 	nodeID := os.Getenv("NODE_ID")
 	nodeAddr := os.Getenv("NODE_ADDR")
+	walletDir := os.Getenv("WALLET_DIR")
 	if nodeAddr == "" {
 		log.Fatal("NODE_ADDR env is not set")
 	}
@@ -177,6 +178,7 @@ func (cli *CommandLine) Run() {
 		log.Fatal("NODE_ID env is not set!")
 	}
 	KnownNodeAddress = append(KnownNodeAddress, nodeAddr)
+	wallet.WalletDir = walletDir
 
 	getBalanceCmd := flag.NewFlagSet("getbalance", flag.ExitOnError)
 	createBlockchainCmd := flag.NewFlagSet("createblockchain", flag.ExitOnError)

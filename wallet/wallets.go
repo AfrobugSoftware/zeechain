@@ -12,6 +12,8 @@ type Wallets struct {
 	Wallets map[string]*Wallet
 }
 
+var WalletDir string
+
 func CreateWallets(nodeId string) (*Wallets, error) {
 	w := &Wallets{
 		Wallets: make(map[string]*Wallet),
@@ -21,7 +23,10 @@ func CreateWallets(nodeId string) (*Wallets, error) {
 }
 
 func (ws *Wallets) LoadFile(nodeId string) error {
-	dir := fmt.Sprintf("%s%s", "wallet", nodeId)
+	dir := WalletDir
+	if dir == "" {
+		dir = fmt.Sprintf("%s%s", "wallet", nodeId)
+	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		return err
 	}
@@ -43,7 +48,10 @@ func (ws *Wallets) LoadFile(nodeId string) error {
 }
 
 func (ws *Wallets) SaveFile(nodeId string) error {
-	dir := fmt.Sprintf("%s%s", "wallet", nodeId)
+	dir := WalletDir
+	if dir == "" {
+		dir = fmt.Sprintf("%s%s", "wallet", nodeId)
+	}
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err := os.Mkdir(dir, 0755)
 		if err != nil {
